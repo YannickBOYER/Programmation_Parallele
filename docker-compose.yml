@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672" # Port principal utilisé par les client RabbitMQ
+      - "15672:15672" # Pour pour accéder a l'interface web
+    hostname: rabbitmq
+
+  parser:
+    build: ./parser
+    depends_on:
+      - rabbitmq
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - CSV_PATH=/data/transactions_autoconnect.csv
+    volumes:
+      - ./data:/data
