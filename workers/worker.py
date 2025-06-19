@@ -35,22 +35,24 @@ def callback(ch, method, properties, body):
         return  # Ignore si pas la bonne ville (sécurité)
 
     prix = transaction['prix']
-    type_transac = transaction['type']
-
     chiffre_affaires += prix
-    repartition[type_transac] += 1
-    
     # print(f"[Worker-{VILLE}] {transaction['transaction_id']} → {type_transac} = {prix} €")
     # print(f"[Worker-{VILLE}] Total CA = {chiffre_affaires} €, Répartition = {dict(repartition)}\n")
+    publish_result("chiffre_affaires", chiffre_affaires)
+
+    # Répartition des transactions
+    type_transac = transaction['type']
+    repartition[type_transac] += 1
+    publish_result("repartition", dict(repartition))
+
+
+def publish_result(type, valeur):
     message = {
         "ville": VILLE,
-        "type": "chiffre_affaires",
-        "valeur": chiffre_affaires,
+        "type": type,
+        "valeur": valeur,
     }
-    publish_result(message)
-
-
-def publish_result(message):
+    # Envoi du résultat dans la queue commune
     channel.basic_publish(
         exchange='',
         routing_key=RESULT_QUEUE_NAME,
