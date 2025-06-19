@@ -17,3 +17,30 @@ services:
       - CSV_PATH=/data/transactions_autoconnect.csv
     volumes:
       - ./data:/data
+
+  lyon_worker:
+    build: ./workers
+    environment:
+      - VILLE=lyon
+    depends_on:
+      - rabbitmq
+
+  paris_worker:
+    build: ./workers
+    environment:
+      - VILLE=paris
+    depends_on:
+      - rabbitmq
+
+  marseille_worker:
+    build: ./workers
+    environment:
+      - VILLE=marseille
+    depends_on:
+      - rabbitmq
+  
+  aggregator:
+    build: ./aggregator
+    depends_on:
+      - rabbitmq
+
