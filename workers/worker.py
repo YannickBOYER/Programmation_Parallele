@@ -28,29 +28,55 @@ channel = connection.channel()
 
 def callback(ch, method, properties, body):
     global chiffre_affaires, repartition
-    transaction = json.loads(body)
+    message = json.loads(body)
+
+    # Si c'est un signal de fin
+    if message["type"] == "END":
+        print(f"[Worker-{VILLE}] Reçu signal de fin. Lancement des calculs.")
+
+        print(f"[Worker-{VILLE}] Total CA = {chiffre_affaires} €, Répartition = {dict(repartition)}\n")
+        #publish_result("chiffre_affaires", chiffre_affaires)
+
+        print("Publication des répartitions")
+        # publish_result("repartition", dict(repartition))
+
+        publish_result("chiffre_affaires", chiffre_affaires)
+        publish_result("repartition", dict(repartition))
+
+        publish_end_message()
+
+        channel.stop_consuming()
+        return
 
     # Vérification que la ville correspond bien
-    if transaction['ville'].lower() != VILLE:
+    if message['ville'].lower() != VILLE:
         return  # Ignore si pas la bonne ville (sécurité)
 
-    prix = transaction['prix']
+    # Cumul du chiffre d'affaire
+    prix = message['prix']
     chiffre_affaires += prix
-    # print(f"[Worker-{VILLE}] {transaction['transaction_id']} → {type_transac} = {prix} €")
-    # print(f"[Worker-{VILLE}] Total CA = {chiffre_affaires} €, Répartition = {dict(repartition)}\n")
-    publish_result("chiffre_affaires", chiffre_affaires)
 
     # Répartition des transactions
-    type_transac = transaction['type']
+    type_transac = message['type']
     repartition[type_transac] += 1
-    publish_result("repartition", dict(repartition))
-
 
 def publish_result(type, valeur):
     message = {
         "ville": VILLE,
         "type": type,
         "valeur": valeur,
+    }
+    # Envoi du résultat dans la queue commune
+    channel.basic_publish(
+        exchange='',
+        routing_key=RESULT_QUEUE_NAME,
+        body=json.dumps(message)
+    )
+
+def publish_end_message():
+    message = {
+        "ville": VILLE,
+        "type": "END",
     }
     # Envoi du résultat dans la queue commune
     channel.basic_publish(

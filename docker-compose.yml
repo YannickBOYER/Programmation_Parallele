@@ -15,32 +15,54 @@ services:
     environment:
       - RABBITMQ_HOST=rabbitmq
       - CSV_PATH=/data/transactions_autoconnect.csv
+      - NOMBRE_WORKERS=3
     volumes:
       - ./data:/data
 
-  lyon_worker:
+  worker_0:
     build: ./workers
     environment:
-      - VILLE=lyon
+      - WORKER_ID=0
     depends_on:
       - rabbitmq
 
-  paris_worker:
+  worker_1:
     build: ./workers
     environment:
-      - VILLE=paris
+      - WORKER_ID=1
     depends_on:
       - rabbitmq
 
-  marseille_worker:
+  worker_2:
     build: ./workers
     environment:
-      - VILLE=marseille
+      - WORKER_ID=2
     depends_on:
       - rabbitmq
+
+  # lyon_worker:
+  #   build: ./workers
+  #   environment:
+  #     - VILLE=lyon
+  #   depends_on:
+  #     - rabbitmq
+
+  # paris_worker:
+  #   build: ./workers
+  #   environment:
+  #     - VILLE=paris
+  #   depends_on:
+  #     - rabbitmq
+
+  # marseille_worker:
+  #   build: ./workers
+  #   environment:
+  #     - VILLE=marseille
+  #   depends_on:
+  #     - rabbitmq
   
-  aggregator:
-    build: ./aggregator
-    depends_on:
-      - rabbitmq
+  # aggregator:
+  #   build: ./aggregator
+  #   depends_on:
+  #     - rabbitmq
 
