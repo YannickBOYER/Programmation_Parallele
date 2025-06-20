@@ -1,14 +1,13 @@
-# Utilise une image Python officielle
 FROM python:3.11-slim
 
-# Répertoire de travail
+# Définit le dossier de travail
 WORKDIR /app
 
-# Copie le script Python dans le conteneur
+# Copie les fichiers du projet dans l'image Docker
 COPY . .
 
-# Installe les dépendances nécessaires
-RUN pip install pika
+# Installe les dépendances
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Définit la commande de lancement
+# Définit le point d’entrée
 CMD ["python", "worker.py"]

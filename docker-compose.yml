@@ -3,66 +3,83 @@ version: '3.8'
 services:
   rabbitmq:
     image: rabbitmq:3-management
+    container_name: rabbitmq
     ports:
       - "5672:5672" # Port principal utilisé par les client RabbitMQ
       - "15672:15672" # Pour pour accéder a l'interface web
-    hostname: rabbitmq
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - prog_parallele
 
   parser:
     build: ./parser
+    container_name: parser
     depends_on:
       - rabbitmq
     environment:
       - RABBITMQ_HOST=rabbitmq
       - CSV_PATH=/data/transactions_autoconnect.csv
       - NOMBRE_WORKERS=3
+    networks:
+      - prog_parallele
     volumes:
       - ./data:/data
 
   worker_0:
     build: ./workers
+    container_name: worker_0
     environment:
       - WORKER_ID=0
     depends_on:
       - rabbitmq
+    networks:
+      - prog_parallele
 
   worker_1:
     build: ./workers
+    container_name: worker_1
     environment:
       - WORKER_ID=1
     depends_on:
       - rabbitmq
+    networks:
+      - prog_parallele
 
   worker_2:
     build: ./workers
+    container_name: worker_2
     environment:
       - WORKER_ID=2
     depends_on:
       - rabbitmq
-
-  # lyon_worker:
-  #   build: ./workers
-  #   environment:
-  #     - VILLE=lyon
-  #   depends_on:
-  #     - rabbitmq
-
-  # paris_worker:
-  #   build: ./workers
-  #   environment:
-  #     - VILLE=paris
-  #   depends_on:
-  #     - rabbitmq
-
-  # marseille_worker:
-  #   build: ./workers
-  #   environment:
-  #     - VILLE=marseille
-  #   depends_on:
-  #     - rabbitmq
+    networks:
+      - prog_parallele
   
-  # aggregator:
-  #   build: ./aggregator
-  #   depends_on:
-  #     - rabbitmq
+  aggregator:
+    build: ./aggregator
+    container_name: aggregator
+    depends_on:
+      - rabbitmq
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+    networks:
+      - prog_parallele
 
+  front:
+    build: ./front
+    container_name: front
+    ports:
+      - "5000:5000"
+    depends_on:
+      - aggregator
+    networks:
+      - prog_parallele
+
+networks:
+  prog_parallele:
+    driver: bridge
+
+volumes:
+  rabbitmq_data:
+    driver: local

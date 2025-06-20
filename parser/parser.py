@@ -1,75 +1,85 @@
-import csv
+#!/usr/bin/env python3
+import pandas as pd
 import pika
 import json
 import os
 import time
 
-CSV_PATH = os.getenv("CSV_PATH", "./data/transactions_autoconnect.csv")
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
-NOMBRE_WORKERS = int(os.getenv("NOMBRE_WORKERS", "3"))  # conversion en int
+CSV_PATH       = os.environ.get("CSV_PATH", "./data/transactions_autoconnect.csv")
+RABBITMQ_HOST  = os.environ.get("RABBITMQ_HOST", "rabbitmq")
+NOMBRE_WORKERS = int(os.environ.get("NUM_WORKERS", "3"))
 
-def lire_et_envoyer_csv(filepath):
-    connection = wait_for_rabbitmq(RABBITMQ_HOST)
-    channel = connection.channel()
+# Connexion à RabbitMQ
+print("[Parser] Connexion à RabbitMQ…")
+connection = None
+for _ in range(10):
+    try:
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=RABBITMQ_HOST)
+        )
+        break
+    except pika.exceptions.AMQPConnectionError:
+        print("[Parser] Erreur de connexion, retry dans 10s…")
+        time.sleep(10)
+if not connection or not connection.is_open:
+    raise RuntimeError("[Parser] Impossible de se connecter à RabbitMQ.")
 
-    used_queues = set()
+channel = connection.channel()
+channel.queue_declare(queue='task_queue', durable=True)
+channel.queue_declare(queue='results',     durable=True)
+channel.queue_declare(queue='aggregated_results', durable=True)
 
-    with open(filepath, newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for i, row in enumerate(reader):
-            try:
-                ville = row['ville'].strip().lower()
-                index = i % NOMBRE_WORKERS
-                queue_name = f"transactions_{index}"
-                used_queues.add(queue_name)  # évite les doublons
+def lire_csv(chemin):
+    """Lit le CSV et renvoie un DataFrame."""
+    print(f"[Parser] Chargement des données depuis {chemin}")
+    return pd.read_csv(chemin, dtype=str)
 
-                # Déclare dynamiquement une queue
-                channel.queue_declare(queue=queue_name)
+def scinder_donnees(df, nb_workers):
+    """Divise le DataFrame en chunks pour les workers."""
+    taille = len(df) // nb_workers + (1 if len(df) % nb_workers else 0)
+    chunks = [df.iloc[i:i+taille] for i in range(0, len(df), taille)]
+    print(f"[Parser] Données divisées en {len(chunks)} chunks")
+    return chunks
 
-                transaction = {
-                    'transaction_id': row['transaction_id'],
-                    'date': row['date'],
-                    'ville': ville,
-                    'type': row['type'].strip().lower(),
-                    'modele': row['modele'].strip(),
-                    'prix': float(row['prix']),
-                    'duree_location_mois': int(row['duree_location_mois']) if row['duree_location_mois'] else None
-                }
-
-                # Envoi dans la queue dédiée
-                channel.basic_publish(
-                    exchange='',
-                    routing_key=queue_name,
-                    body=json.dumps(transaction)
-                )
-                print(f"[Parser] Envoyé {transaction['transaction_id']} dans {queue_name}")
-
-            except Exception as e:
-                print(f"[Parser] Ligne {i+2} ignorée : {e}")
-
-    # Envoie un message "END" dans chaque queue utilisée
-    for queue_name in used_queues:
-        end_message = {"type": "END"}
+def distribuer_batchs(chunks):
+    """Publie chaque chunk sur task_queue."""
+    total = len(chunks)
+    for i, chunk in enumerate(chunks):
+        message = {
+            "type":     "batch",
+            "batch_id": i+1,
+            "data":     chunk.to_dict(orient="records")
+        }
         channel.basic_publish(
             exchange='',
-            routing_key=queue_name,
-            body=json.dumps(end_message)
+            routing_key='task_queue',
+            body=json.dumps(message),
+            properties=pika.BasicProperties(delivery_mode=2)
         )
-        print(f"[Parser] Signal de fin envoyé à {queue_name}")
+        print(f"[Parser] Batch {i+1}/{total} publié ({len(chunk)} lignes)")
+    return total
 
+def notifier_fin(total_batchs):
+    """Publie le signal FIN sur la queue results."""
+    message = {
+        "type":          "FIN",
+        "total_batches": total_batchs
+    }
+    channel.basic_publish(
+        exchange='',
+        routing_key='results',
+        body=json.dumps(message),
+        properties=pika.BasicProperties(delivery_mode=2)
+    )
+    print(f"[Parser] Signal FIN publié dans 'results' (total={total_batchs})")
+
+def main():
+    df = lire_csv(CSV_PATH)
+    chunks = scinder_donnees(df, NOMBRE_WORKERS)
+    total = distribuer_batchs(chunks)
+    notifier_fin(total)
+    channel.close()
     connection.close()
-    print("[Parser] Fini d'envoyer les transactions.")
-
-def wait_for_rabbitmq(host, max_retries=10):
-    for i in range(max_retries):
-        try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
-            print("[Parser] Connexion établie avec RabbitMQ.")
-            return connection
-        except pika.exceptions.AMQPConnectionError:
-            print(f"[Parser] Tentative de connexion à RabbitMQ ({i+1}/{max_retries})...")
-            time.sleep(3)
-    raise Exception("[Parser] Impossible de se connecter à RabbitMQ.")
 
 if __name__ == "__main__":
-    lire_et_envoyer_csv(CSV_PATH)
+    main()

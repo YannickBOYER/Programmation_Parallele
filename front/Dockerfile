@@ -10,4 +10,4 @@ COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Définit le point d’entrée
-CMD ["python", "aggregator.py"]
+CMD ["python", "front.py"]
