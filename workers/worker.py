@@ -32,28 +32,28 @@ def calcul_ca_mensuel_par_ville(df):
     df['date'] = pd.to_datetime(df['date'])
     df['prix'] = pd.to_numeric(df['prix'], errors='coerce')
     df['mois'] = df['date'].dt.strftime('%Y-%m')
-    résultat = df.groupby(['ville','mois'])['prix'].sum().reset_index()
+    resultat = df.groupby(['ville','mois'])['prix'].sum().reset_index()
     ca = {}
-    for _, row in résultat.iterrows():
+    for _, row in resultat.iterrows():
         ville, mois, montant = row['ville'], row['mois'], float(row['prix'])
         ca.setdefault(ville, {})[mois] = montant
     return ca
 
 def calcul_repartition_vente_location(df):
     """Calcule la répartition vente/location par ville."""
-    résultat = df.groupby(['ville','type']).size().reset_index(name='count')
+    resultat = df.groupby(['ville','type']).size().reset_index(name='count')
     repart = {}
-    for _, row in résultat.iterrows():
+    for _, row in resultat.iterrows():
         ville, ttype, cnt = row['ville'], row['type'], int(row['count'])
         repart.setdefault(ville, {})[ttype] = cnt
     return repart
 
 def trouver_top_modeles(df, top_n=5):
     """Détermine les top modèles par ville."""
-    résultat = df.groupby(['ville','modele']).size().reset_index(name='count')
+    resultat = df.groupby(['ville','modele']).size().reset_index(name='count')
     top_mod = {}
-    for ville in résultat['ville'].unique():
-        sub = résultat[résultat['ville']==ville]
+    for ville in resultat['ville'].unique():
+        sub = resultat[resultat['ville']==ville]
         t5  = sub.sort_values('count', ascending=False).head(top_n)
         top_mod[ville] = {row['modele']: int(row['count']) for _, row in t5.iterrows()}
     return top_mod
@@ -65,7 +65,7 @@ def gestion_message(ch, method, props, body):
     df       = pd.DataFrame.from_records(msg['data'])
     print(f"[Worker] Traitement batch {batch_id} ({len(df)} lignes)")
 
-    résultats = {
+    resultats = {
         'ca_mensuel_ville':          calcul_ca_mensuel_par_ville(df),
         'repartition_vente_location': calcul_repartition_vente_location(df),
         'top_models':                trouver_top_modeles(df)
@@ -74,7 +74,7 @@ def gestion_message(ch, method, props, body):
     sortie = {
         "type":     "batch",
         "batch_id": batch_id,
-        "results":  résultats
+        "results":  resultats
     }
     ch.basic_publish(
         exchange='',
