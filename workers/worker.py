@@ -54,8 +54,8 @@ def trouver_top_modeles(df, top_n=5):
     top_mod = {}
     for ville in resultat['ville'].unique():
         sub = resultat[resultat['ville']==ville]
-        t5  = sub.sort_values('count', ascending=False).head(top_n)
-        top_mod[ville] = {row['modele']: int(row['count']) for _, row in t5.iterrows()}
+        top_models = sub.sort_values('count', ascending=False).head(top_n)
+        top_mod[ville] = {row['modele']: int(row['count']) for _, row in top_models.iterrows()}
     return top_mod
 
 def gestion_message(ch, method, props, body):

@@ -56,10 +56,10 @@ def gestion_message(channel, method, props, body):
     t   = msg.get('type')
 
     if t == 'batch':
-        bid = msg['batch_id']
+        id_batch = msg['batch_id']
         liste_resultats.append(msg['results'])
-        ids_recus.add(bid)
-        print(f"[Aggregator] Reçu batch {bid}")
+        ids_recus.add(id_batch)
+        print(f"[Aggregator] Reçu batch {id_batch}")
 
     elif t == 'FIN':
         attendu = msg['total_batches']
@@ -106,7 +106,7 @@ def main():
     if not connection:
         raise Exception("[Aggregator] Impossible de se connecter à RabbitMQ.")
         
-    channel    = connection.channel()
+    channel = connection.channel()
     channel.queue_declare(queue=QUEUE_RESULTS,    durable=True)
     channel.queue_declare(queue=QUEUE_AGGREGATED, durable=True)
 
