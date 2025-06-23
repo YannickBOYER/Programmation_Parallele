@@ -1,5 +1,7 @@
 # Avec le csv ./data/transactions_autoconnect.csv, peux tu me calculer la repartition de la colonne type par ville ?
 import pandas as pd
+import time
+
 if __name__ == "__main__":
     df = pd.read_csv('./data/transactions_autoconnect.csv', dtype=str)
     repartition = df.groupby(['ville', 'type']).size().reset_index(name='count')

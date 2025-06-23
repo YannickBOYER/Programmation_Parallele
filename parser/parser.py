@@ -8,6 +8,7 @@ import time
 CSV_PATH       = os.environ.get("CSV_PATH", "./data/transactions_autoconnect.csv")
 RABBITMQ_HOST  = os.environ.get("RABBITMQ_HOST", "rabbitmq")
 NOMBRE_WORKERS = int(os.environ.get("NUM_WORKERS", "3"))
+taille = 100  # Taille fixe de chaque batch
 
 # Connexion à RabbitMQ
 print("[Parser] Connexion à RabbitMQ…")
@@ -34,12 +35,17 @@ def lire_csv(chemin):
     print(f"[Parser] Chargement des données depuis {chemin}")
     return pd.read_csv(chemin, dtype=str)
 
-def scinder_donnees(df, nb_workers):
+def scinder_donnees(df, taille=100):
     """Divise le DataFrame en batchs pour les workers."""
-    taille = len(df) // nb_workers + (1 if len(df) % nb_workers else 0)
+    print(f"[Parser] Division des données en batchs de {taille} lignes")
     batchs = [df.iloc[i:i+taille] for i in range(0, len(df), taille)]
-    print(f"[Parser] Données divisées en {len(batchs)} batchs")
+    print(f"[Parser] Données divisées en {len(batchs)} batchs de {taille} lignes")
     return batchs
+
+    # taille = len(df) // nb_workers + (1 if len(df) % nb_workers else 0)
+    # batchs = [df.iloc[i:i+taille] for i in range(0, len(df), taille)]
+    # print(f"[Parser] Données divisées en {len(batchs)} batchs")
+    # return batchs
 
 def distribuer_batchs(batchs):
     """Publie chaque batch sur la queue task."""
@@ -75,7 +81,7 @@ def notifier_fin(total_batchs):
 
 def main():
     df = lire_csv(CSV_PATH)
-    batchs = scinder_donnees(df, NOMBRE_WORKERS)
+    batchs = scinder_donnees(df, taille=taille)
     total = distribuer_batchs(batchs)
     notifier_fin(total)
     channel.close()
