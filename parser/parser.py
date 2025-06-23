@@ -35,20 +35,20 @@ def lire_csv(chemin):
     return pd.read_csv(chemin, dtype=str)
 
 def scinder_donnees(df, nb_workers):
-    """Divise le DataFrame en chunks pour les workers."""
+    """Divise le DataFrame en batchs pour les workers."""
     taille = len(df) // nb_workers + (1 if len(df) % nb_workers else 0)
-    chunks = [df.iloc[i:i+taille] for i in range(0, len(df), taille)]
-    print(f"[Parser] Données divisées en {len(chunks)} chunks")
-    return chunks
+    batchs = [df.iloc[i:i+taille] for i in range(0, len(df), taille)]
+    print(f"[Parser] Données divisées en {len(batchs)} batchs")
+    return batchs
 
-def distribuer_batchs(chunks):
-    """Publie chaque chunk sur task_queue."""
-    total = len(chunks)
-    for i, chunk in enumerate(chunks):
+def distribuer_batchs(batchs):
+    """Publie chaque batch sur la queue task."""
+    total = len(batchs)
+    for i, batch in enumerate(batchs):
         message = {
             "type":     "batch",
             "batch_id": i+1,
-            "data":     chunk.to_dict(orient="records")
+            "data":     batch.to_dict(orient="records")
         }
         channel.basic_publish(
             exchange='',
@@ -56,7 +56,7 @@ def distribuer_batchs(chunks):
             body=json.dumps(message),
             properties=pika.BasicProperties(delivery_mode=2)
         )
-        print(f"[Parser] Batch {i+1}/{total} publié ({len(chunk)} lignes)")
+        print(f"[Parser] Batch {i+1}/{total} publié ({len(batch)} lignes)")
     return total
 
 def notifier_fin(total_batchs):
@@ -75,8 +75,8 @@ def notifier_fin(total_batchs):
 
 def main():
     df = lire_csv(CSV_PATH)
-    chunks = scinder_donnees(df, NOMBRE_WORKERS)
-    total = distribuer_batchs(chunks)
+    batchs = scinder_donnees(df, NOMBRE_WORKERS)
+    total = distribuer_batchs(batchs)
     notifier_fin(total)
     channel.close()
     connection.close()
