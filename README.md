@@ -69,7 +69,7 @@ Nous avons choisi un modèle **Fork–Join** :
 - le **fork** est réalisé par le parser qui découpe et distribue les données,
 - le **join** est assuré par l’agrégateur.
 
-Une approche MapReduce classique aurait nécessité une phase de réduction plus complexe et des outils spécifiques (par exemple Hadoop). Le fork–join s’adapte mieux à un jeu de données contenu et à un orchestrateur comme Docker Compose.
+Une approche MapReduce classique aurait nécessité une phase de réduction plus complexe et des outils spécifiques. Le fork–join s’adapte mieux à un jeu de données contenu et à un orchestrateur comme Docker Compose.
 
 ### Justification des choix techniques
 
